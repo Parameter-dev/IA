@@ -1,0 +1,20 @@
+[project]
+name = "ia"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Sebastián", email = "rictovdel@iespoblenou.org" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "gliner>=0.2.29",
+    "notebook>=7.6.3",
+    "pymupdf>=1.28.2",
+]
+
+[project.scripts]
+ia = "ia:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
