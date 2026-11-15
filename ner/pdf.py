@@ -8,7 +8,7 @@ def extract_text_from_pdf(
 ) -> str:
     path = Path(pdf_path)
     if not path.exists():
-        raise FileNotFoundError(f"No se encontró el archivo PDF: {path}")
+        raise FileNotFoundError(f"PDF no encontrado: {path}")
 
     pages_text: List[str] = []
     with pymupdf.open(path) as doc:
@@ -23,16 +23,10 @@ def extract_text_from_pdf(
 
 
 def resolve_pdf_path(pdf_dir: Path, doc_id: str) -> Path:
-    candidates = [
-        pdf_dir / f"{doc_id}.pdf",
-        pdf_dir / f"{doc_id}_scanned.pdf",
-    ]
-    for candidate in candidates:
+    for candidate in (pdf_dir / f"{doc_id}.pdf", pdf_dir / f"{doc_id}_scanned.pdf"):
         if candidate.exists():
             return candidate
-    raise FileNotFoundError(
-        f"No se encontró el PDF para el id '{doc_id}' en {pdf_dir}"
-    )
+    raise FileNotFoundError(f"No existe PDF para '{doc_id}' en {pdf_dir}")
 
 
 def extract_pdf_dataset(
@@ -41,20 +35,20 @@ def extract_pdf_dataset(
     use_ocr: bool = False,
 ) -> List[Dict[str, Any]]:
     directory = Path(pdf_dir)
-    extracted_records: List[Dict[str, Any]] = []
+    records: List[Dict[str, Any]] = []
 
     if reference_dataset is not None:
-        for record in reference_dataset:
-            doc_id = record["id"]
-            pdf_path = resolve_pdf_path(directory, doc_id)
+        for item in reference_dataset:
+            pdf_path = resolve_pdf_path(directory, item["id"])
             text = extract_text_from_pdf(pdf_path, use_ocr=use_ocr)
-            new_record = dict(record)
-            new_record["text"] = text
-            extracted_records.append(new_record)
+            updated = dict(item)
+            updated["text"] = text
+            records.append(updated)
     else:
         for pdf_path in sorted(directory.glob("*.pdf")):
             doc_id = pdf_path.stem.replace("_scanned", "")
-            text = extract_text_from_pdf(pdf_path, use_ocr=use_ocr)
-            extracted_records.append({"id": doc_id, "text": text})
+            records.append(
+                {"id": doc_id, "text": extract_text_from_pdf(pdf_path, use_ocr=use_ocr)}
+            )
 
-    return extracted_records
+    return records
