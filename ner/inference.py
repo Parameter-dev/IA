@@ -1,7 +1,11 @@
-from typing import Any, Dict, List, Optional, Union
+from __future__ import annotations
 
-from gliner import GLiNER
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from gliner import GLiNER
 
 # Natural-language descriptions used for the "label descriptions" experiments
 # (GLiNER receives the description instead of the bare label name; the original
@@ -22,10 +26,15 @@ def load_gliner_model(
     device: Optional[str] = None,
 ) -> GLiNER:
     """Load a GLiNER model. If ``device`` is None, CUDA is used when available."""
-    model = GLiNER.from_pretrained(model_name)
-    if device is None:
-        import torch
+    import torch
+    from gliner import GLiNER
 
+    try:
+        model = GLiNER.from_pretrained(model_name, local_files_only=True)
+    except Exception:
+        model = GLiNER.from_pretrained(model_name)
+
+    if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     return model.to(device)
 
