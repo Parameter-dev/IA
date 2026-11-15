@@ -27,32 +27,19 @@
 
 ## 3. Results Summary
 
+<!-- RESULTS_TABLE_START -->
 | Input | Model | Label descriptions | Extraction | Evaluation | P | R | F1 |
 | :--- | :--- | :---: | :---: | :--- | :---: | :---: | :---: |
-| Plain text | `gliner_small-v2.5` | No | — | Strict | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | `gliner_small-v2.5` | No | — | Relaxed occurrences | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | `gliner_small-v2.5` | No | — | Relaxed unique | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | `gliner_small-v2.5` | Yes | — | Strict | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | `gliner_large-v2.5` | No | — | Strict | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | `gliner_large-v2.5` | No | — | Relaxed occurrences | *0.XX* | *0.XX* | *0.XX* |
-| Clean PDF | `gliner_small-v2.5` | No | PyMuPDF | Strict | *0.XX* | *0.XX* | *0.XX* |
-| Clean PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed occurrences | *0.XX* | *0.XX* | *0.XX* |
-| Clean PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed unique | *0.XX* | *0.XX* | *0.XX* |
-| Scanned PDF | `gliner_small-v2.5` | No | PyMuPDF | Strict | *0.XX* | *0.XX* | *0.XX* |
-| Scanned PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed occurrences | *0.XX* | *0.XX* | *0.XX* |
-| Scanned PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed unique | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | LLM Chat (No API) | Yes | — | Strict | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | LLM Chat (No API) | Yes | — | Relaxed occurrences | *0.XX* | *0.XX* | *0.XX* |
-| Plain text | LLM Chat (No API) | Yes | — | Relaxed unique | *0.XX* | *0.XX* | *0.XX* |
+<!-- RESULTS_TABLE_END -->
 
-*(Note: Replace `*0.XX*` with the exact micro Precision, Recall, and F1 outputs printed by `01_plain_text.ipynb` and `02_pdf_scanned.ipynb`).*
+*Micro-averaged Precision / Recall / F1 computed by `ner.evaluation` on the files in `results/` (table generated with `uv run python scripts/make_report.py`). The LLM row is evaluated on `validation_small.jsonl`; all other rows on `validation.jsonl`.*
 
 ---
 
 ## 4. Difficulties and Decisions
 1. **Character Span Misalignment in PDFs:** When extracting text from PDFs using `PyMuPDF`, line breaks, headers, multi-column layouts, and extra whitespace alter the exact character offsets (`start`, `end`) compared to the original plain-text ground truth. Consequently, evaluating PDF predictions against plain-text ground truth causes a sharp drop in **Strict** metrics even when the model correctly identifies the entity text. Relying on **Relaxed** evaluation (`occurrences` and `unique`) was essential to measure true extraction quality on PDFs.
 2. **Scanned PDFs without Embedded Text Layers:** Standard `page.get_text("text")` in `PyMuPDF` only extracts embedded digital text streams. On purely rasterized scanned PDFs (`data/pdf_scanned/`), standard extraction returns empty strings or noisy OCR artifacts, resulting in near-zero recall unless an OCR engine (such as `page.get_textpage_ocr()` with Tesseract) is enabled. Additionally, scanned filenames used the `_scanned.pdf` suffix (`test-0001_scanned.pdf`), which required a flexible path resolver in `ner/pdf.py`.
-3. **LLM Chat Offset Calculation:** Generative LLMs excel at semantic entity identification in zero-shot settings but struggle to count exact character indices (`start`, `end`) manually in long documents. To make a fair comparison under **Strict** evaluation, we implemented a post-processing alignment step that matches the exact substring returned by the LLM back to its character offsets in the source text.
+3. **LLM Chat Offset Calculation:** Generative LLMs excel at semantic entity identification in zero-shot settings but struggle to count exact character indices (`start`, `end`) manually in long documents. To make a fair comparison under **Strict** evaluation, we implemented a post-processing alignment step (`ner/llm.py`) that locates the exact substring returned by the LLM in the source text and recomputes `start`/`end` (successive occurrences for repeated mentions; entities not found literally in the text are discarded).
 
 ---
 

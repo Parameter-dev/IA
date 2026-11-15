@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 def load_jsonl(
     file_path: Union[str, Path], n: Optional[int] = None
 ) -> List[Dict[str, Any]]:
+    """Load a JSONL file. If ``n`` is given, only the first ``n`` records are read."""
     path = Path(file_path)
     records: List[Dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as f:
@@ -21,6 +22,7 @@ def load_jsonl(
 def save_responses_to_jsonl(
     responses: Iterable[Dict[str, Any]], output_path: Union[str, Path]
 ) -> None:
+    """Save records as JSONL, creating parent folders if needed."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
