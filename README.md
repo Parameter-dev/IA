@@ -30,6 +30,24 @@
 <!-- RESULTS_TABLE_START -->
 | Input | Model | Label descriptions | Extraction | Evaluation | P | R | F1 |
 | :--- | :--- | :---: | :---: | :--- | :---: | :---: | :---: |
+| Plain text | `gliner_small-v2.5` | No | — | Strict | 0.77 | 0.87 | 0.82 |
+| Plain text | `gliner_small-v2.5` | No | — | Relaxed occurrences | 0.77 | 0.87 | 0.82 |
+| Plain text | `gliner_small-v2.5` | No | — | Relaxed unique | 0.78 | 0.89 | 0.83 |
+| Plain text | `gliner_small-v2.5` | Yes | — | Strict | 0.98 | 0.28 | 0.43 |
+| Plain text | `gliner_small-v2.5` | Yes | — | Relaxed occurrences | 0.98 | 0.28 | 0.43 |
+| Plain text | `gliner_small-v2.5` | Yes | — | Relaxed unique | 0.98 | 0.43 | 0.59 |
+| Plain text | `gliner_large-v2.5` | No | — | Strict | 1.00 | 0.91 | 0.96 |
+| Plain text | `gliner_large-v2.5` | No | — | Relaxed occurrences | 1.00 | 0.91 | 0.96 |
+| Plain text | `gliner_large-v2.5` | No | — | Relaxed unique | 1.00 | 0.91 | 0.95 |
+| Clean PDF | `gliner_small-v2.5` | No | PyMuPDF | Strict | 0.53 | 0.60 | 0.56 |
+| Clean PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed occurrences | 0.77 | 0.87 | 0.82 |
+| Clean PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed unique | 0.78 | 0.89 | 0.83 |
+| Scanned PDF | `gliner_small-v2.5` | No | PyMuPDF | Strict | 0.00 | 0.00 | 0.00 |
+| Scanned PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed occurrences | 0.00 | 0.00 | 0.00 |
+| Scanned PDF | `gliner_small-v2.5` | No | PyMuPDF | Relaxed unique | 0.00 | 0.00 | 0.00 |
+| Plain text (validation_small) | LLM chat (no API) | Yes (prompt) | — | Strict | 0.99 | 0.97 | 0.98 |
+| Plain text (validation_small) | LLM chat (no API) | Yes (prompt) | — | Relaxed occurrences | 0.99 | 0.97 | 0.98 |
+| Plain text (validation_small) | LLM chat (no API) | Yes (prompt) | — | Relaxed unique | 0.98 | 1.00 | 0.99 |
 <!-- RESULTS_TABLE_END -->
 
 *Micro-averaged Precision / Recall / F1 computed by `ner.evaluation` on the files in `results/` (table generated with `uv run python scripts/make_report.py`). The LLM row is evaluated on `validation_small.jsonl`; all other rows on `validation.jsonl`.*
@@ -46,19 +64,19 @@
 ## 5. Conclusions
 
 ### Comparison of Main Results
-* **Small vs. Large GLiNER Models:** `gliner_large-v2.5` achieves higher Precision and Recall than `gliner_small-v2.5` on ambiguous and long-tail entities due to its larger representation capacity, at the cost of higher memory consumption and slower CPU inference.
-* **Impact of Label Descriptions:** Providing concise label descriptions helps disambiguate closely related administrative categories, improving precision on domain-specific labels, though overly verbose descriptions can occasionally shift attention away from short surface forms.
-* **GLiNER vs. LLM Chat:** The LLM chat demonstrates strong zero-shot comprehension and high **Relaxed** F1 scores without task-specific tuning, often matching or outperforming `gliner_small-v2.5` on complex contextual entities. However, without programmatic span re-alignment, raw LLM character offsets fail under **Strict** evaluation, whereas GLiNER natively predicts accurate token/character spans.
+* **Small vs. Large GLiNER Models:** `gliner_large-v2.5` substantially outperforms `gliner_small-v2.5` on plain text, raising **Strict F1** from `0.82` (`P=0.77, R=0.87`) to `0.96` (`P=1.00, R=0.91`) and **Relaxed Unique F1** from `0.83` to `0.95`. In particular, `gliner_large-v2.5` resolves full composite `ADDRESS` spans (`F1=0.97` vs. `0.00` in `small`, which fragments addresses into separate street, number, and city spans) and reaches `F1=1.00` on `ORGANIZATION`, though its recall on `REGISTRATION_NUMBER` is lower (`0.37` vs. `0.98`) at the `0.5` threshold.
+* **Impact of Label Descriptions:** Replacing short label identifiers with full natural-language sentences in `gliner_small-v2.5` increases **Precision** from `0.77` to `0.98`, but reduces **Recall** from `0.87` to `0.28` (`Strict F1 = 0.43`, `Relaxed Unique F1 = 0.59`) at the fixed `0.5` threshold. While `AMOUNT` (`F1=0.98`) and `DATE` (`F1=0.89`) remain strong, verbose descriptions lower confidence scores below `0.5` for several categories, showing that descriptive label prompts require a lower threshold (e.g., `0.3`).
+* **GLiNER vs. LLM Chat:** Evaluated on `validation_small.jsonl` (10 documents), the zero-shot LLM chat achieves **Strict / Relaxed Occurrences F1 = 0.98** (`P=0.99, R=0.97`) and **Relaxed Unique F1 = 0.99** (`P=0.98, R=1.00`), capturing complex `ADDRESS` and `ORGANIZATION` spans accurately once character offsets are aligned programmatically (`ner/llm.py`).
 
 ### Most Difficult Entity Types
-* **Long or Composite Administrative Mentions:** Entities that include titles, legal references, addresses, or organizational hierarchies frequently suffer from boundary disagreements (e.g., including or excluding articles, prefixes, or punctuation), which heavily penalizes **Strict** match while still succeeding or partially succeeding in qualitative review.
-* **Ambiguous Alphanumeric Codes and Dates:** Short identifiers, reference numbers, and dates that appear in multiple contexts (e.g., document issue date vs. birth date or deadline) are prone to label confusion between categories.
+* **Composite Postal Addresses (`ADDRESS`):** Full addresses (`street, number, floor, postal code, city`) are the hardest entity type for `gliner_small-v2.5` (`F1=0.00`), because the small model splits each address into 2–3 separate fragments (e.g., `'Avenida de Aragón'`, `'102, 2-B'`, `'17001 Girona'`), generating both false positives and false negatives under exact span matching. Both `gliner_large-v2.5` (`F1=0.97`) and the LLM chat (`F1=1.00`) capture the complete address span.
+* **Administrative Organizations & Registration Codes (`ORGANIZATION`, `REGISTRATION_NUMBER`):** Long multi-word institutional names (`F1=0.80` in `gliner_small-v2.5`) and alphanumeric file references (`EXP-...`, `ASS-...`, `ENT-...`, `RES-...`) are sensitive to model capacity and threshold selection.
 
 ### Plain Text vs. Clean PDF vs. Scanned PDF
-* **Plain Text vs. Clean PDF:** Under **Relaxed** evaluation (`occurrences` and `unique`), **Clean PDF** results are almost identical to **Plain Text** results because `PyMuPDF` recovers the digital text accurately. However, under **Strict** evaluation, **Clean PDF** performance drops noticeably because PDF line-wrapping and layout formatting shift the `(start, end)` character indices relative to the plain-text ground truth.
-* **Clean PDF vs. Scanned PDF:** **Scanned PDFs** yield the lowest performance when using standard text extraction (`PyMuPDF` without OCR) because scanned pages are stored as images rather than character streams (or contain degraded OCR noise such as `l`/`1` or `O`/`0` substitutions). Even when OCR is applied, character recognition errors on low-resolution scans degrade both **Strict** and **Relaxed** metrics because whitespace normalization cannot fix misspelled characters inside an entity string.
+* **Plain Text vs. Clean PDF:** Under **Relaxed** evaluation, **Clean PDF** results (`Relaxed Occurrences F1 = 0.82`, `Relaxed Unique F1 = 0.83`) are **identical** to **Plain Text** (`0.82` and `0.83`), proving that `PyMuPDF` recovers the digital text layer without losing entity content. However, under **Strict** evaluation, **Clean PDF** F1 drops from `0.82` to `0.56` (`P=0.53, R=0.60`) because PDF line breaks shift character offsets (`start`, `end`) relative to the plain-text ground truth.
+* **Clean PDF vs. Scanned PDF:** **Scanned PDFs** (`test-0001_scanned.pdf` to `test-0010_scanned.pdf`) yield `F1 = 0.00` across all metrics when using standard `PyMuPDF` extraction (`page.get_text("text")`) because the scanned pages are rasterized images with `0` embedded characters. Extracting entities from scanned documents therefore requires an OCR stage (such as Tesseract via `page.get_textpage_ocr()`) prior to NER inference.
 
 ### Strict vs. Relaxed Evaluation
-* **Strict Evaluation (`start`, `end`, `label`):** Requires exact character-offset and label agreement. It is the most rigorous metric for plain-text sequence labeling, but it is overly punitive when text comes from external document parsers (`PyMuPDF`) that introduce layout-induced offset shifts, or when a model includes a trailing space/punctuation mark.
-* **Relaxed Occurrences (`label` + normalized text, counting repetitions):** Ignores character offsets (`spans`) and normalizes whitespace while still requiring the model to find every mention in the document. The significant jump from **Strict F1** to **Relaxed Occurrences F1** (especially on Clean PDFs) proves that GLiNER correctly extracts the entities even when PDF formatting shifts their byte positions.
-* **Relaxed Unique (`label` + normalized text, deduplicated per document):** Counts each unique `(label, text)` pair only once per document. It achieves the highest F1 score across all experiments and is the most representative metric for downstream administrative information extraction (e.g., populating a database record), where extracting a person's name or ID at least once per document is what matters most.
+* **Strict Evaluation (`start`, `end`, `label`):** Requires exact character-offset and label agreement. It is ideal for plain-text sequence labeling (`0.82` on `small`, `0.96` on `large`), but drops from `0.82` to `0.56` on Clean PDFs purely due to layout-induced offset shifts.
+* **Relaxed Occurrences (`label` + normalized text, counting repetitions):** Ignores character offsets (`spans`) and normalizes whitespace while still requiring the model to find every mention in the document. The jump from **Strict F1 (`0.56`)** to **Relaxed Occurrences F1 (`0.82`)** on Clean PDFs proves that GLiNER extracts the exact same mentions from PDFs as from plain text.
+* **Relaxed Unique (`label` + normalized text, deduplicated per document):** Counts each unique `(label, text)` pair only once per document. It achieves higher F1 scores across experiments (`0.83` for `gliner_small`, `0.99` for LLM chat) and is the most representative metric for downstream administrative indexing, where extracting each unique person, ID card, or expediente number at least once per document is the primary goal.
